@@ -100,7 +100,7 @@ if 'student_progress' not in st.session_state:
 def load_model():
     try:
         # Load your trained model (adjust path as needed)
-        model = keras.models.load_model('project_main.ipynb')
+        model = keras.models.load_model('C:/Users/Admin/Desktop/special_child_project/project_main.ipynb')
         return model
     except:
         st.warning("⚠️ Model file not found. Please ensure 'project_main.ipynb' is in the same directory.")

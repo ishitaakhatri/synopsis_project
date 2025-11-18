@@ -14,12 +14,14 @@ from collections import Counter
 import re
 
 # Try to import OpenAI for LLM functionality
+# Try to import Gemini for LLM functionality
 try:
-    import openai
-    OPENAI_AVAILABLE = True
+    import google.generativeai as genai
+    GEMINI_AVAILABLE = True
 except ImportError:
-    OPENAI_AVAILABLE = False
-    st.warning("⚠️ OpenAI library not installed. LLM features will be disabled. Install with: pip install openai")
+    GEMINI_AVAILABLE = False
+    st.warning("⚠️ Gemini library not installed. Install with: pip install google-generativeai")
+
 
 # Page configuration
 st.set_page_config(
@@ -123,8 +125,8 @@ if 'student_progress' not in st.session_state:
     st.session_state.student_progress = {}
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
-if 'openai_api_key' not in st.session_state:
-    st.session_state.openai_api_key = ""
+if 'gemini_api_key' not in st.session_state:
+    st.session_state.gemini_api_key = ""
 
 # Load model and metadata
 @st.cache_resource
@@ -134,7 +136,7 @@ def load_model():
         'model.h5',
         'model.keras',
         'saved_model',
-        'project_main.h5'
+        'C:/Users/Admin/Desktop/special_child_project/project_main.ipynb'
     ]
     
     for path in model_paths:
@@ -312,70 +314,61 @@ def get_practice_words(weak_letters, num_words=10):
     return practice_list
 
 def get_llm_advice(student_data, progress_data, weak_letters, api_key):
-    """Get advice from LLM for the teacher"""
-    if not OPENAI_AVAILABLE or not api_key:
+    if not GEMINI_AVAILABLE or not api_key:
         return None
-    
+
     try:
-        # Initialize OpenAI client
-        client = openai.OpenAI(api_key=api_key)
-        
-        # Prepare context for LLM
+        genai.configure(api_key=api_key)
+
+        model = genai.GenerativeModel("gemini-pro")
+
         context = f"""
-You are an expert special education teacher assistant. You're helping a teacher work with a student who has special needs.
+You are an expert special education teacher assistant.
 
 Student Profile:
 - Name: {student_data['name']}
-- Age: {student_data['age']} years
+- Age: {student_data['age']}
 - Disability: {student_data['disability']}
 - IQ Level: {student_data['iq']}
 - Disability Percentage: {student_data['disability_percentage']}%
 
 Current Challenges:
-- Weak letters (needs practice): {', '.join(weak_letters)}
-- Recent progress entries: {len(progress_data)} submissions
+- Weak letters: {', '.join(weak_letters)}
+- Recent progress: {len(progress_data)} entries
 
-Please provide:
-1. Specific teaching strategies for this student's profile
-2. Homework recommendations that focus on the weak letters
-3. Practice activities suitable for their age and ability level
-4. Encouragement strategies that work well for students with their specific disability
-
-Keep your response warm, practical, and actionable. Use simple language.
+Provide:
+1. Teaching strategies
+2. Homework recommendations
+3. Age-appropriate practice activities
+4. Encouragement strategies
 """
-        
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a compassionate and experienced special education teacher assistant."},
-                {"role": "user", "content": context}
-            ],
-            max_tokens=500,
-            temperature=0.7
-        )
-        
-        return response.choices[0].message.content
+
+        response = model.generate_content(context)
+        return response.text
+
     except Exception as e:
         return f"Error getting AI advice: {str(e)}"
 
+
 def chat_with_llm(messages, api_key):
-    """Chat with LLM about student progress"""
-    if not OPENAI_AVAILABLE or not api_key:
-        return "Please set your OpenAI API key in the sidebar to use the AI assistant."
-    
+    if not GEMINI_AVAILABLE or not api_key:
+        return "Please set your Gemini API key in the sidebar."
+
     try:
-        client = openai.OpenAI(api_key=api_key)
-        
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=messages,
-            max_tokens=300,
-            temperature=0.7
-        )
-        
-        return response.choices[0].message.content
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-pro")
+
+        # Convert chat history to single text prompt
+        chat_text = ""
+        for m in messages:
+            chat_text += f"{m['role'].upper()}: {m['content']}\n"
+
+        response = model.generate_content(chat_text)
+        return response.text
+
     except Exception as e:
         return f"Error: {str(e)}"
+
 
 def show_default_charts(student_name):
     """Show default charts when no data is uploaded"""
@@ -507,10 +500,10 @@ def student_selection_page():
             "OpenAI API Key",
             type="password",
             value=st.session_state.openai_api_key,
-            help="Enter your OpenAI API key to enable AI teaching assistant"
+            help="Enter your gemini API key to enable AI teaching assistant"
         )
         if api_key:
-            st.session_state.openai_api_key = api_key
+            st.session_state.gemini_api_key = api_key
             st.success("✅ API Key set!")
         else:
             st.info("AI features disabled without API key")
@@ -569,7 +562,7 @@ def student_dashboard():
             "OpenAI API Key",
             type="password",
             value=st.session_state.openai_api_key,
-            help="Enter your OpenAI API key to enable AI features"
+            help="Enter your gemini API key to enable AI features"
         )
         if api_key:
             st.session_state.openai_api_key = api_key
@@ -870,10 +863,6 @@ def ai_assistant_section(student):
     if not st.session_state.openai_api_key:
         st.warning("⚠️ Please set your OpenAI API key in the sidebar to use the AI assistant.")
         st.info("You can get an API key from: https://platform.openai.com/api-keys")
-        return
-    
-    if not OPENAI_AVAILABLE:
-        st.error("OpenAI library not installed. Install it with: `pip install openai`")
         return
     
     # Get student progress
